@@ -1,3 +1,4 @@
+```
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -221,7 +222,7 @@ canvas{touch-action:none}
 
 <section id="startScreen" class="screen active">
   <div class="arcade">
-    <div class="kicker">FEMANI MEDICAL PRESENTA · V3</div>
+    <div class="kicker">FEMANI MEDICAL PRESENTA · V3.1</div>
     <div class="logo">OFFICE<span>RUSH</span></div>
     <div class="subtitle">Deslizá directamente sobre el mapa para moverte. Juntá todos los ítems y llegá a la salida lo más rápido posible.</div>
 
@@ -237,7 +238,7 @@ canvas{touch-action:none}
     </div>
 
     <button id="startBtn" class="startBtn">START GAME</button>
-    <div class="tiny">Versión V3 · control directo sobre el mapa · ranking compartido por Google Sheets.</div>
+    <div class="tiny">Versión V3.1 · perseguidores mejorados · ranking compartido por Google Sheets.</div>
   </div>
 </section>
 
@@ -535,26 +536,92 @@ function loop(ts){
  const dt=Math.min((ts-lastTs)/1000,.035);lastTs=ts;
  if(playing)update(dt);draw();raf=requestAnimationFrame(loop);
 }
+// Busca el primer paso de una ruta corta hacia el jugador.
+// No vuelve a los perseguidores perfectos: después mezclamos esta ruta
+// con decisiones aleatorias para que sigan teniendo algo de "torpeza".
+function nextStepTowardHero(enemy){
+ const m=maps[stage];
+ const rows=m.length,cols=m[0].length;
+ const key=(x,y)=>`${x},${y}`;
+ const startKey=key(enemy.x,enemy.y);
+ const queue=[{x:enemy.x,y:enemy.y}];
+ const prev=new Map();
+ prev.set(startKey,null);
+
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+ let endKey=null;
+
+ while(queue.length){
+   const cur=queue.shift();
+
+   if(cur.x===hero.x && cur.y===hero.y){
+     endKey=key(cur.x,cur.y);
+     break;
+   }
+
+   // Mezclar el orden evita que siempre elijan exactamente la misma ruta
+   // cuando hay dos caminos igual de cortos.
+   const shuffled=[...dirs].sort(()=>Math.random()-.5);
+
+   for(const d of shuffled){
+     const nx=cur.x+d[0],ny=cur.y+d[1];
+     const k=key(nx,ny);
+     if(wall(nx,ny) || prev.has(k))continue;
+     prev.set(k,{x:cur.x,y:cur.y});
+     queue.push({x:nx,y:ny});
+   }
+ }
+
+ if(!endKey)return null;
+
+ let cur={x:hero.x,y:hero.y};
+ let parent=prev.get(key(cur.x,cur.y));
+
+ while(parent && !(parent.x===enemy.x && parent.y===enemy.y)){
+   cur=parent;
+   parent=prev.get(key(cur.x,cur.y));
+ }
+
+ return {dx:cur.x-enemy.x,dy:cur.y-enemy.y};
+}
+
 function update(dt){
  elapsed+=dt;
  $("timerText").textContent=fmt(elapsed+penaltySeconds);
 
  enemies.forEach((e,idx)=>{
    e.cool-=dt;
+
    if(e.cool<=0){
      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-     // lightweight chasing: prefer axis with greatest distance
-     dirs.sort((a,b)=>{
-       const da=Math.abs((e.x+a[0])-hero.x)+Math.abs((e.y+a[1])-hero.y);
-       const db=Math.abs((e.x+b[0])-hero.x)+Math.abs((e.y+b[1])-hero.y);
-       return da-db;
-     });
      const options=dirs.filter(d=>!wall(e.x+d[0],e.y+d[1]));
-     const choice=options[Math.random()<.72?0:Math.floor(Math.random()*options.length)];
-     if(choice){e.x+=choice[0];e.y+=choice[1]}
-     e.cool=.34;
+     const chase=nextStepTowardHero(e);
+
+     // Un poco más perseguidores que antes, pero siguen equivocándose.
+     // El primero es apenas más insistente que el segundo.
+     const chaseChance=idx===0 ? .84 : .78;
+
+     let choice=null;
+
+     if(chase && Math.random()<chaseChance){
+       choice=[chase.dx,chase.dy];
+     }else if(options.length){
+       choice=options[Math.floor(Math.random()*options.length)];
+     }
+
+     if(choice){
+       e.x+=choice[0];
+       e.y+=choice[1];
+     }
+
+     // Se mueven apenas más seguido que antes.
+     // El segundo queda un toque más lento para que no sea una persecución insoportable.
+     e.cool=idx===0 ? .29 : .32;
    }
-   if(e.x===hero.x&&e.y===hero.y){applyPenalty(e)}
+
+   if(e.x===hero.x&&e.y===hero.y){
+     applyPenalty(e);
+   }
  });
 }
 
@@ -768,3 +835,4 @@ resize();showScreen($("startScreen"));draw();
 </script>
 </body>
 </html>
+```
