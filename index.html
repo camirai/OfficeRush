@@ -222,8 +222,8 @@ canvas{touch-action:none}
 
 <section id="startScreen" class="screen active">
   <div class="arcade">
-    <div class="kicker">FEMANI MEDICAL PRESENTA · V3.1</div>
-    <div class="logo">OFFICE<span>RUSH</span></div>
+    <div class="kicker">FEMANI MEDICAL PRESENTA · V4</div>
+    <div class="logo">FEMANI<span>RUSH</span></div>
     <div class="subtitle">Deslizá directamente sobre el mapa para moverte. Juntá todos los ítems y llegá a la salida lo más rápido posible.</div>
 
     <div class="namebox">
@@ -238,7 +238,7 @@ canvas{touch-action:none}
     </div>
 
     <button id="startBtn" class="startBtn">START GAME</button>
-    <div class="tiny">Versión V3.1 · perseguidores mejorados · ranking compartido por Google Sheets.</div>
+    <div class="tiny">Versión V4 · 4 niveles · power-ups · ranking compartido por Google Sheets.</div>
   </div>
 </section>
 
@@ -246,7 +246,7 @@ canvas{touch-action:none}
   <div class="hud">
     <div class="hudBox"><div class="hudLabel">PLAYER</div><div id="hudName" class="hudValue">CAMI</div></div>
     <div class="timer"><small>TIME</small><strong id="timerText">00:00.00</strong></div>
-    <div class="hudBox right"><div class="hudLabel">STAGE</div><div id="stageText" class="hudValue">1/3</div></div>
+    <div class="hudBox right"><div class="hudLabel">STAGE</div><div id="stageText" class="hudValue">1/4</div></div>
   </div>
   <div id="objectiveText" class="objective">JUNTÁ TODO</div><div class="youLegend"><span class="youDot"></span> VOS</div>
   <div class="swipeHint">DESLIZÁ SOBRE EL MAPA ↔ ↕</div>
@@ -275,6 +275,7 @@ canvas{touch-action:none}
       <tr><td>OFICINA</td><td id="t1">00:00.00</td></tr>
       <tr><td>DEPÓSITO</td><td id="t2">00:00.00</td></tr>
       <tr><td>SALA DE REUNIONES</td><td id="t3">00:00.00</td></tr>
+       <tr><td>🔥 NIVEL ÉPICO</td><td id="t4">00:00.00</td></tr>
       <tr><td>PENALIZACIONES</td><td id="penCount">0</td></tr>
     </table>
 
@@ -303,7 +304,7 @@ const overlays=[$("stageOverlay"),$("clearOverlay")];
 
 let W=0,H=0,DPR=1,raf=null,lastTs=0;
 let playerName="PLAYER",stage=0,playing=false;
-let elapsed=0,penaltySeconds=0,penalties=0,stageStartElapsed=0,stageTimes=[0,0,0];
+let elapsed=0,penaltySeconds=0,penalties=0,stageStartElapsed=0,stageTimes=[0,0,0,0];
 let cell=0,offX=0,offY=0;
 let hero={x:1,y:1},items=[],enemies=[],exit={x:0,y:0};
 let swipePointer=null,lastX=0,lastY=0;
@@ -353,24 +354,48 @@ const maps=[
 "WWW.W.WWWWW.W.W",
 "W.............W",
 "WWWWWWWWWWWWWWW"
+],
+[
+"WWWWWWWWWWWWWWW",
+"WS..W.....W...EW",
+"W.W.W.WWW.W.WWW",
+"W.W...W...W....W",
+"W.WWW.W.WWWWW.W",
+"W...W.W.......WW",
+"WWW.W.WWWWW.W..W",
+"W...W.....W.WW.W",
+"W.WWWWW.W.W...WW",
+"W.W.....W.W.W..W",
+"W.W.WWWWW.W.WW.W",
+"W..............W",
+"WWWWWWWWWWWWWWW"
 ]
 ];
 
 const stages=[
 {
- name:"OFICINA",desc:"Juntá todos los archivos antes de llegar al ascensor.",collect:"XLS",collectColor:"#4cc26b",
+ name:"OFICINA",desc:"Juntá todo lo necesario y llegá al ascensor.",collect:"XLS",collectColor:"#4cc26b",
+ itemLabels:["XLS","MAIL","TEL","DOC","CAFÉ"],
  wall:"#2e4977",floor:"#d9edf8",exitLabel:"ASC",exitColor:"#2fb2ff",
  enemyLabels:["CONSULTITA","RESPONDER A TODOS"],fact:"Archivo final_v7_AHORA_SI.xlsx guardado con éxito."
 },
 {
- name:"DEPÓSITO",desc:"Recorré los racks, juntá todas las cajas y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
+ name:"DEPÓSITO",desc:"Recorré los racks, recuperá el material y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
+ itemLabels:["23","26","29","34","REM"],
  wall:"#607d54",floor:"#e7f5df",exitLabel:"EXP",exitColor:"#79f2a2",
  enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"Todo encontrado. Nadie sabe cómo, pero salió."
 },
 {
- name:"SALA DE REUNIONES",desc:"Juntá todas las diapositivas y escapá por la puerta.",collect:"PPT",collectColor:"#df6b43",
+ name:"SALA DE REUNIONES",desc:"Juntá todo y escapá antes de que aparezca otra reunión.",collect:"PPT",collectColor:"#df6b43",
+ itemLabels:["PPT","CAFÉ","CEL","MAIL","XLS"],
  wall:"#755c86",floor:"#f2e4fa",exitLabel:"SALIR",exitColor:"#ffd447",
- enemyLabels:["REUNIÓN QUE PODÍA SER UN MAIL","LA IMPRESORA DECIDIÓ NO COLABORAR"],fact:"Presentación terminada. La reunión sobrevivió menos que vos."
+ enemyLabels:["REUNIÓN","IMPRESORA"],fact:"Presentación terminada. Lograste escapar."
+},
+{
+ name:"🔥 NIVEL ÉPICO",desc:"Última corrida: recuperá todo el material y llegá a CIRUGÍA.",collect:"KIT",collectColor:"#ff4f70",
+ itemLabels:["23","26","29","34","REM","KIT","DOC"],
+ wall:"#7d2948",floor:"#ffe6ee",exitLabel:"CX",exitColor:"#ffe66d",
+ enemyLabels:["URGENTE","SISTEMA","CONSULTITA"],fact:"Misión épica completada. El material llegó y sobreviviste al caos."
 }
 ];
 
@@ -401,7 +426,7 @@ $("startBtn").onclick=()=>{
  const n=$("playerName").value.trim();
  playerName=(n||"PLAYER").toUpperCase().slice(0,14);
  $("hudName").textContent=playerName;
- stage=0;elapsed=0;penaltySeconds=0;penalties=0;stageTimes=[0,0,0];
+ stage=0;elapsed=0;penaltySeconds=0;penalties=0;stageTimes=[0,0,0,0];
  showScreen($("gameScreen"));showStage();
 };
 
@@ -411,7 +436,7 @@ function showStage(){
  $("stageKicker").textContent=`STAGE ${stage+1}`;
  $("stageTitle").textContent=s.name;
  $("stageDesc").textContent=s.desc;
- $("stageText").textContent=`${stage+1}/3`;
+ $("stageText").textContent=`${stage+1}/4`;
  overlay($("stageOverlay"));
  draw();
 }
@@ -429,10 +454,13 @@ function startStage(){
  for(let r=1;r<m.length-1;r++)for(let c=1;c<m[r].length-1;c++){
    if(m[r][c]!=="W" && !(c===hero.x&&r===hero.y) && !(c===exit.x&&r===exit.y)) candidates.push({x:c,y:r});
  }
- const picks=[.12,.28,.46,.64,.82].map(p=>candidates[Math.floor((candidates.length-1)*p)]);
- items=picks.map((p,i)=>({x:p.x,y:p.y,got:false,id:i}));
+ const fractions=stage===3?[.08,.20,.33,.46,.59,.72,.86]:[.12,.28,.46,.64,.82];
+ const picks=fractions.map(p=>candidates[Math.floor((candidates.length-1)*p)]);
+ const labels=stages[stage].itemLabels||[];
+ items=picks.map((p,i)=>({x:p.x,y:p.y,got:false,id:i,label:labels[i%labels.length]||stages[stage].collect}));
 
- const enemySpots=[candidates[Math.floor(candidates.length*.34)],candidates[Math.floor(candidates.length*.72)]];
+ const enemyFractions=stage===3?[.24,.51,.78]:[.34,.72];
+ const enemySpots=enemyFractions.map(f=>candidates[Math.floor(candidates.length*f)]);
  enemies=enemySpots.map((p,i)=>({x:p.x,y:p.y,dir:i?1:-1,label:stages[stage].enemyLabels[i%stages[stage].enemyLabels.length],cool:0}));
 
  stageStartElapsed=elapsed+penaltySeconds;
@@ -450,7 +478,7 @@ function allCollected(){return items.every(i=>i.got)}
 
 function updateObjective(){
  const left=items.filter(i=>!i.got).length;
- const thing=stage===0?"ARCHIVOS":stage===1?"CAJAS":"DIAPOS";
+ const thing=stage===0?"OBJETOS":stage===1?"MATERIALES":stage===2?"COSAS":"MATERIALES";
  $("objectiveText").textContent=left>0?`JUNTÁ ${thing} · FALTAN ${left}`:"LISTO · ANDÁ A LA SALIDA";
 }
 
@@ -599,7 +627,7 @@ function update(dt){
 
      // Un poco más perseguidores que antes, pero siguen equivocándose.
      // El primero es apenas más insistente que el segundo.
-     const chaseChance=idx===0 ? .84 : .78;
+     const chaseChance=stage===3 ? (idx===0?.91:idx===1?.87:.83) : (idx===0 ? .84 : .78);
 
      let choice=null;
 
@@ -616,7 +644,7 @@ function update(dt){
 
      // Se mueven apenas más seguido que antes.
      // El segundo queda un toque más lento para que no sea una persecución insoportable.
-     e.cool=idx===0 ? .29 : .32;
+     e.cool=stage===3 ? (idx===0?.24:idx===1?.27:.30) : (idx===0 ? .29 : .32);
    }
 
    if(e.x===hero.x&&e.y===hero.y){
@@ -643,12 +671,12 @@ function clearStage(){
  stageTimes[stage]=(elapsed+penaltySeconds)-stageStartElapsed;
  $("clearTitle").textContent=`${stages[stage].name} COMPLETADA`;
  $("clearFact").textContent=stages[stage].fact;
- $("nextBtn").textContent=stage<2?"NEXT STAGE":"VER RESULTADO";
+ $("nextBtn").textContent=stage<3?"NEXT STAGE":"VER RESULTADO";
  overlay($("clearOverlay"));
 }
 $("nextBtn").onclick=()=>{
  overlay(null);
- if(stage<2){stage++;showStage()}else finishGame();
+ if(stage<3){stage++;showStage()}else finishGame();
 };
 
 async function finishGame(){
@@ -659,6 +687,7 @@ async function finishGame(){
  $("t1").textContent=fmt(stageTimes[0]);
  $("t2").textContent=fmt(stageTimes[1]);
  $("t3").textContent=fmt(stageTimes[2]);
+ $("t4").textContent=fmt(stageTimes[3]);
  $("penCount").textContent=`${penalties} (+${penaltySeconds}s)`;
  $("rankText").textContent=rank(total);
 
@@ -692,6 +721,7 @@ async function saveScore(s){
    oficina:stageTimes[0],
    deposito:stageTimes[1],
    reunion:stageTimes[2],
+   epico:stageTimes[3],
    penalizaciones:penalties
  };
 
@@ -754,7 +784,7 @@ $("againBtn").onclick=()=>showScreen($("startScreen"));
 function draw(){
  if(!W||!H)return;
  ctx.fillStyle="#08101e";ctx.fillRect(0,0,W,H);
- drawMap();drawItems();drawExit();drawEnemies();drawHero();
+ drawMap();drawStageDetails();drawItems();drawExit();drawEnemies();drawHero();
 }
 function drawMap(){
  const m=maps[stage],s=stages[stage];
@@ -769,17 +799,40 @@ function drawMap(){
    }
  }
 }
+function drawStageDetails(){
+ ctx.save();
+ ctx.textAlign="center";ctx.textBaseline="middle";
+ ctx.font=`900 ${Math.max(7,cell*.11)}px Arial`;
+ ctx.fillStyle="rgba(8,16,30,.38)";
+ const labels=stage===0?["EXCEL","MAIL","PEDIDOS"]:
+              stage===1?["RACK 23","RACK 26","RACK 29","RACK 34"]:
+              stage===2?["PPT","CAFÉ","SALIDA"]:
+              ["TAVI","AORTA","URGENTE","CX"];
+ const spots=[[2,11],[6,1],[11,11],[9,5]];
+ labels.forEach((t,i)=>{const p=spots[i%spots.length];ctx.fillText(t,offX+(p[0]+.5)*cell,offY+(p[1]+.5)*cell)});
+ ctx.restore();
+}
+
 function drawItems(){
  const s=stages[stage];
  items.forEach(i=>{
    if(i.got)return;
    const x=offX+(i.x+.5)*cell,y=offY+(i.y+.5)*cell;
-   ctx.fillStyle=s.collectColor;ctx.fillRect(x-cell*.18,y-cell*.15,cell*.36,cell*.3);
-   ctx.fillStyle="#fff";ctx.font=`900 ${Math.max(7,cell*.14)}px Courier New`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(s.collect,x,y);
+   ctx.fillStyle=s.collectColor;
+   if(stage===1||stage===3){
+     ctx.fillRect(x-cell*.21,y-cell*.17,cell*.42,cell*.34);
+     ctx.strokeStyle="rgba(0,0,0,.28)";ctx.strokeRect(x-cell*.21,y-cell*.17,cell*.42,cell*.34);
+   }else{
+     ctx.fillRect(x-cell*.18,y-cell*.15,cell*.36,cell*.3);
+   }
+   ctx.fillStyle="#fff";ctx.font=`900 ${Math.max(7,cell*.14)}px Courier New`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(i.label||s.collect,x,y);
  });
 }
 function drawExit(){
  const s=stages[stage],x=offX+(exit.x+.5)*cell,y=offY+(exit.y+.5)*cell;
+ if(stage===3&&allCollected()){
+   ctx.fillStyle="rgba(255,230,109,.25)";ctx.beginPath();ctx.arc(x,y,cell*.48,0,Math.PI*2);ctx.fill();
+ }
  ctx.fillStyle=allCollected()?s.exitColor:"#7c8794";ctx.fillRect(x-cell*.3,y-cell*.32,cell*.6,cell*.64);
  ctx.fillStyle="#08101e";ctx.font=`900 ${Math.max(7,cell*.12)}px Courier New`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(s.exitLabel,x,y);
 }
@@ -793,7 +846,9 @@ function drawEnemies(){
    ctx.fillStyle="#7c2335";
    ctx.font=`900 ${Math.max(9,cell*.17)}px Arial`;
    ctx.textAlign="center";ctx.textBaseline="middle";
-   ctx.fillText(i?"@":"!",x,y);
+   const mark=stage===0?(i?"@":"?"):stage===1?(i?"SYS":"!"):stage===2?(i?"PPT":"!"):["!","SYS","?"][i%3];
+   ctx.font=`900 ${Math.max(7,cell*(mark.length>1?.10:.17))}px Arial`;
+   ctx.fillText(mark,x,y);
    ctx.restore();
  });
 }
