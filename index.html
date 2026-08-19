@@ -222,7 +222,7 @@ canvas{touch-action:none}
 
 <section id="startScreen" class="screen active">
   <div class="arcade">
-    <div class="kicker">FEMANI MEDICAL PRESENTA </div>
+    <div class="kicker">FEMANI MEDICAL PRESENTA · V4.2</div>
     <div class="logo">FEMANI<span>RUSH</span></div>
     <div class="subtitle">Deslizá directamente sobre el mapa para moverte. Juntá todos los ítems y llegá a la salida lo más rápido posible.</div>
 
@@ -238,7 +238,7 @@ canvas{touch-action:none}
     </div>
 
     <button id="startBtn" class="startBtn">START GAME</button>
-    <div class="tiny">Versión V4.1 · niveles 2/3 más dispersos · nivel épico reequilibrado.</div>
+    <div class="tiny">Versión V4.2 · perseguidores alejados al inicio en todos los niveles.</div>
   </div>
 </section>
 
@@ -383,7 +383,7 @@ const stages=[
  name:"DEPÓSITO",desc:"Los materiales quedaron repartidos por todo el depósito. Recuperalos y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
  itemLabels:["23","26","29","34","REM"],
  wall:"#607d54",floor:"#e7f5df",exitLabel:"EXP",exitColor:"#79f2a2",
- enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"DEPÓSITO SUPERADO · Encontraste todo sin preguntar tres veces dónde estaba."
+ enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"DEPÓSITO SUPERADO · Encontraste todo sin preguntar tres veces dónde estaba. Récord institucional."
 },
 {
  name:"SALA DE REUNIONES",desc:"Tus cosas quedaron desparramadas por toda la sala. Juntalas y escapá antes de que aparezca otra reunión.",collect:"PPT",collectColor:"#df6b43",
@@ -501,19 +501,33 @@ function startStage(){
 
  // In the epic level enemies must start well away from the player.
  // This gives a few seconds to read the map before the chase begins.
+ // All hazards start far from the player, on every level.
+ // Normal levels: at least 8 cells away. Epic: at least 10.
+ const enemyMinDistance=stage===3 ? 10 : 8;
+
  let enemyPool=candidates.filter(p=>{
    const dHero=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
    const onItem=picks.some(q=>q.x===p.x&&q.y===p.y);
-   return !onItem && (stage===3 ? dHero>=9 : dHero>=5);
+   return !onItem && dHero>=enemyMinDistance;
  });
- if(enemyPool.length<(stage===3?3:2)) enemyPool=candidates.filter(p=>!picks.some(q=>q.x===p.x&&q.y===p.y));
+
+ // If a particular map has too few cells at that distance, relax only
+ // slightly rather than allowing enemies to spawn beside the player.
+ if(enemyPool.length<(stage===3?3:2)){
+   enemyPool=candidates.filter(p=>{
+     const dHero=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
+     const onItem=picks.some(q=>q.x===p.x&&q.y===p.y);
+     return !onItem && dHero>=6;
+   });
+ }
 
  const enemyCount=stage===3?3:2;
- const enemySpots=pickSpreadPositions(enemyPool,enemyCount,stage===3?9:5,3);
+ const enemySpots=pickSpreadPositions(enemyPool,enemyCount,enemyMinDistance,3);
  enemies=enemySpots.map((p,i)=>({
    x:p.x,y:p.y,dir:i?1:-1,
    label:stages[stage].enemyLabels[i%stages[stage].enemyLabels.length],
-   cool:stage===3 ? .85+i*.12 : .25+i*.08
+   // Small grace period at the beginning of every stage.
+   cool:stage===3 ? 1.05+i*.12 : .75+i*.10
  }));
 
  stageStartElapsed=elapsed+penaltySeconds;
