@@ -222,7 +222,7 @@ canvas{touch-action:none}
 
 <section id="startScreen" class="screen active">
   <div class="arcade">
-    <div class="kicker">FEMANI MEDICAL PRESENTA · V4.2</div>
+    <div class="kicker">FEMANI MEDICAL PRESENTA · V4.4</div>
     <div class="logo">FEMANI<span>RUSH</span></div>
     <div class="subtitle">Deslizá directamente sobre el mapa para moverte. Juntá todos los ítems y llegá a la salida lo más rápido posible.</div>
 
@@ -238,7 +238,7 @@ canvas{touch-action:none}
     </div>
 
     <button id="startBtn" class="startBtn">START GAME</button>
-    <div class="tiny">Versión V4.2 · perseguidores alejados al inicio en todos los niveles.</div>
+    <div class="tiny">Versión V4.4 · persecución activada por posición, no por tiempo.</div>
   </div>
 </section>
 
@@ -308,6 +308,8 @@ let elapsed=0,penaltySeconds=0,penalties=0,stageStartElapsed=0,stageTimes=[0,0,0
 let cell=0,offX=0,offY=0;
 let hero={x:1,y:1},items=[],enemies=[],exit={x:0,y:0};
 let swipePointer=null,lastX=0,lastY=0;
+let enemiesActive=false;
+let protectedStartCells=new Set();
 
 const maps=[
 [
@@ -479,6 +481,46 @@ function pickSpreadPositions(candidates,count,minHero=0,minExit=0){
  return chosen;
 }
 
+// Protect the forced opening corridor.
+// We walk outward from the hero while there is only one forward option.
+// Once the player reaches a genuine junction, we also protect a small
+// buffer around that junction so hazards cannot camp the first choice.
+function getProtectedStartCells(){
+ const protectedCells=new Set();
+ const key=(x,y)=>`${x},${y}`;
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+
+ let cur={x:hero.x,y:hero.y};
+ let prev=null;
+ protectedCells.add(key(cur.x,cur.y));
+
+ for(let step=0;step<30;step++){
+   const options=dirs
+     .map(d=>({x:cur.x+d[0],y:cur.y+d[1]}))
+     .filter(p=>!wall(p.x,p.y))
+     .filter(p=>!prev || !(p.x===prev.x&&p.y===prev.y));
+
+   if(options.length!==1){
+     // We reached the first junction (or a dead end).
+     // Protect the junction and its immediate branches.
+     options.forEach(p=>{
+       protectedCells.add(key(p.x,p.y));
+       dirs.forEach(d=>{
+         const nx=p.x+d[0],ny=p.y+d[1];
+         if(!wall(nx,ny))protectedCells.add(key(nx,ny));
+       });
+     });
+     break;
+   }
+
+   prev={x:cur.x,y:cur.y};
+   cur=options[0];
+   protectedCells.add(key(cur.x,cur.y));
+ }
+
+ return protectedCells;
+}
+
 function startStage(){
  const m=maps[stage];
  items=[];enemies=[];
@@ -501,23 +543,27 @@ function startStage(){
 
  // In the epic level enemies must start well away from the player.
  // This gives a few seconds to read the map before the chase begins.
- // All hazards start far from the player, on every level.
- // Normal levels: at least 8 cells away. Epic: at least 10.
+ // IMPORTANT: distance alone is not enough.
+ // If the player starts inside a single corridor, an enemy can be "far"
+ // but still block the only possible route. So we protect the whole
+ // opening section until the first real junction.
+ protectedStartCells=getProtectedStartCells();
+ enemiesActive=false;
+
  const enemyMinDistance=stage===3 ? 10 : 8;
+ const safeFromStart=(p)=>!protectedStartCells.has(`${p.x},${p.y}`);
 
  let enemyPool=candidates.filter(p=>{
    const dHero=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
    const onItem=picks.some(q=>q.x===p.x&&q.y===p.y);
-   return !onItem && dHero>=enemyMinDistance;
+   return !onItem && safeFromStart(p) && dHero>=enemyMinDistance;
  });
 
- // If a particular map has too few cells at that distance, relax only
- // slightly rather than allowing enemies to spawn beside the player.
  if(enemyPool.length<(stage===3?3:2)){
    enemyPool=candidates.filter(p=>{
      const dHero=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
      const onItem=picks.some(q=>q.x===p.x&&q.y===p.y);
-     return !onItem && dHero>=6;
+     return !onItem && safeFromStart(p) && dHero>=6;
    });
  }
 
@@ -526,8 +572,8 @@ function startStage(){
  enemies=enemySpots.map((p,i)=>({
    x:p.x,y:p.y,dir:i?1:-1,
    label:stages[stage].enemyLabels[i%stages[stage].enemyLabels.length],
-   // Small grace period at the beginning of every stage.
-   cool:stage===3 ? 1.05+i*.12 : .75+i*.10
+   // They remain frozen until the player leaves the protected opening.
+   cool:.20+i*.06
  }));
 
  stageStartElapsed=elapsed+penaltySeconds;
@@ -549,11 +595,30 @@ function updateObjective(){
  $("objectiveText").textContent=left>0?`JUNTÁ ${thing} · FALTAN ${left}`:"LISTO · ANDÁ A LA SALIDA";
 }
 
+function maybeActivateEnemies(){
+ if(enemiesActive)return;
+
+ const key=`${hero.x},${hero.y}`;
+
+ // IMPORTANT: this depends on the player's POSITION, not the clock.
+ // The enemies wake up only once the player has left the forced
+ // opening corridor and its first-junction safety buffer.
+ if(!protectedStartCells.has(key)){
+   enemiesActive=true;
+
+   const box=$("penalty");
+   box.textContent="PERSECUCIÓN ACTIVADA";
+   box.classList.add("show");
+   setTimeout(()=>box.classList.remove("show"),500);
+ }
+}
+
 function moveHero(dx,dy){
  if(!playing)return;
  const nx=hero.x+dx,ny=hero.y+dy;
  if(wall(nx,ny))return;
  hero.x=nx;hero.y=ny;
+ maybeActivateEnemies();
 
  items.forEach(i=>{if(!i.got&&i.x===hero.x&&i.y===hero.y)i.got=true});
  updateObjective();
@@ -685,6 +750,10 @@ function update(dt){
  $("timerText").textContent=fmt(elapsed+penaltySeconds);
 
  enemies.forEach((e,idx)=>{
+   // Frozen and harmless until the player reaches an area with
+   // a real route choice. No unavoidable opening hits.
+   if(!enemiesActive)return;
+
    e.cool-=dt;
 
    if(e.cool<=0){
@@ -714,7 +783,7 @@ function update(dt){
      e.cool=stage===3 ? (idx===0?.24:idx===1?.27:.30) : (idx===0 ? .29 : .32);
    }
 
-   if(e.x===hero.x&&e.y===hero.y){
+   if(enemiesActive && e.x===hero.x&&e.y===hero.y){
      applyPenalty(e);
    }
  });
@@ -908,12 +977,12 @@ function drawEnemies(){
  enemies.forEach((e,i)=>{
    const x=offX+(e.x+.5)*cell,y=offY+(e.y+.5)*cell;
    ctx.save();
-   ctx.fillStyle=i?"#ff9bb9":"#ff8b8b";
+   ctx.fillStyle=!enemiesActive?"#7d8a96":(i?"#ff9bb9":"#ff8b8b");
    ctx.beginPath();ctx.arc(x,y,cell*.19,0,Math.PI*2);ctx.fill();
-   ctx.fillStyle="#7c2335";
+   ctx.fillStyle=!enemiesActive?"#dce4ea":"#7c2335";
    ctx.font=`900 ${Math.max(9,cell*.17)}px Arial`;
    ctx.textAlign="center";ctx.textBaseline="middle";
-   const mark=stage===0?(i?"@":"?"):stage===1?(i?"SYS":"!"):stage===2?(i?"PPT":"!"):["!","SYS","?"][i%3];
+   const mark=!enemiesActive?"Z":(stage===0?(i?"@":"?"):stage===1?(i?"SYS":"!"):stage===2?(i?"PPT":"!"):["!","SYS","?"][i%3]);
    ctx.font=`900 ${Math.max(7,cell*(mark.length>1?.10:.17))}px Arial`;
    ctx.fillText(mark,x,y);
    ctx.restore();
