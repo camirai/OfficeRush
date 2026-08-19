@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1f">
+<title>Femani Medical: Office Rush</title>
+<style>
+:root{
+  --bg:#0b0f1f;
+  --panel:#11182d;
+  --blue:#2fb2ff;
+  --cyan:#62f0ff;
+  --gold:#ffd447;
+  --red:#ff5f70;
+  --green:#79f2a2;
+  --ink:#08101e;
+  --white:#f5fbff;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--white);font-family:"Courier New",monospace;touch-action:none}
+button,input{font:inherit}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.screen{position:fixed;inset:0;display:none;z-index:20}
+.screen.active{display:flex}
+
+/* ---------- START ---------- */
+#startScreen{
+  align-items:center;justify-content:center;padding:20px;
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
+    radial-gradient(circle at 50% 20%,rgba(47,178,255,.18),transparent 28%),
+    linear-gradient(180deg,#111a34,#090d19);
+  background-size:20px 20px,20px 20px,auto,auto;
+}
+.arcade{
+  width:min(100%,520px);padding:24px 20px 22px;border:3px solid var(--cyan);
+  box-shadow:0 0 0 5px #17203d,0 0 40px rgba(98,240,255,.18);
+  background:rgba(8,14,28,.92);text-align:center;
+}
+.kicker{font-size:.7rem;letter-spacing:2px;color:var(--green);margin-bottom:8px}
+.logo{font-size:clamp(2rem,9vw,4rem);font-weight:900;line-height:.92;color:var(--white);text-shadow:4px 4px 0 #1d5d84}
+.logo span{display:block;color:var(--gold);text-shadow:4px 4px 0 #8a5d00;margin-top:8px}
+.subtitle{margin:14px auto 18px;max-width:410px;font-size:.82rem;line-height:1.45;color:#cde7ff}
+.namebox{margin:10px auto 14px;max-width:340px;text-align:left}
+.namebox label{display:block;font-size:.68rem;color:var(--cyan);margin-bottom:6px}
+.namebox input{
+  width:100%;padding:13px 12px;background:#07101f;border:2px solid #2b6d95;color:#fff;outline:none;
+  text-transform:uppercase;font-weight:900;letter-spacing:1px;
+}
+.namebox input:focus{border-color:var(--cyan)}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.rule{padding:10px;background:#10172b;border:1px solid #24395e;text-align:left;font-size:.68rem;line-height:1.4}
+.rule b{display:block;color:var(--gold);margin-bottom:3px}
+.startBtn{margin-top:6px;padding:14px 28px;border:0;background:var(--gold);color:#4f3700;font-weight:900;box-shadow:0 5px 0 #a26e00;cursor:pointer}
+.startBtn:active{transform:translateY(4px);box-shadow:0 1px 0 #a26e00}
+.tiny{margin-top:11px;font-size:.62rem;color:#7da7c8}
+
+/* ---------- GAME ---------- */
+#gameScreen{display:none;pointer-events:none}
+#gameScreen.active{display:block}
+.hud{
+  position:fixed;z-index:8;top:0;left:0;right:0;padding:max(10px,env(safe-area-inset-top)) 10px 0;
+  display:grid;grid-template-columns:1fr auto 1fr;gap:7px;align-items:start;pointer-events:none
+}
+.hudBox{padding:7px 9px;background:rgba(6,13,27,.9);border:1px solid #28577b;min-width:86px}
+.hudBox.right{justify-self:end;text-align:center}
+.hudLabel{font-size:.56rem;color:#83cfff}
+.hudValue{font-size:.95rem;font-weight:900}
+.timer{text-align:center;color:var(--gold);text-shadow:2px 2px 0 #6c4c00}
+.timer small{display:block;font-size:.55rem;color:#fff}.timer strong{font-size:1.75rem}
+.objective{
+  position:fixed;z-index:7;top:max(72px,calc(env(safe-area-inset-top) + 60px));left:50%;transform:translateX(-50%);
+  max-width:88%;padding:6px 10px;background:rgba(8,15,29,.8);border:1px solid #2c668d;
+  font-size:.64rem;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none
+}
+.controls{
+  position:fixed;z-index:12;left:0;right:0;bottom:max(10px,env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto
+}
+.swipePad{
+  position:relative;width:230px;height:122px;border:2px solid #366c95;background:
+  radial-gradient(circle at center,rgba(98,240,255,.08),transparent 45%),
+  linear-gradient(180deg,rgba(17,31,57,.95),rgba(8,16,32,.96));
+  box-shadow:0 10px 28px rgba(0,0,0,.28);touch-action:none
+}
+.swipeGrid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;align-items:center;justify-items:center;color:#719ec2;pointer-events:none}
+.swipeGrid .up{grid-column:2}.swipeGrid .left{grid-column:1;grid-row:2}.swipeGrid .mid{grid-column:2;grid-row:2;color:var(--gold);font-size:1.1rem}.swipeGrid .right{grid-column:3;grid-row:2}.swipeGrid .down{grid-column:2;grid-row:3}
+.swipePad.ml .left,.swipePad.mr .right,.swipePad.mu .up,.swipePad.md .down{color:var(--gold);transform:scale(1.25)}
+.controlHelp{font-size:.62rem;color:#a7c8df;text-align:center}
+
+/* ---------- OVERLAYS ---------- */
+.overlay{
+  position:fixed;z-index:40;inset:0;display:none;align-items:center;justify-content:center;padding:20px;
+  background:rgba(2,7,15,.82);backdrop-filter:blur(5px)
+}
+.overlay.active{display:flex}
+.card{
+  width:min(100%,440px);padding:24px 20px;border:2px solid #3f8abc;background:#0d1629;
+  box-shadow:0 0 0 4px #15223f,0 18px 45px rgba(0,0,0,.4);text-align:center
+}
+.stage{font-size:.65rem;color:var(--green);letter-spacing:2px}.card h2{margin:7px 0;color:var(--gold)}.card p{font-size:.78rem;line-height:1.5;color:#d8ebfa}
+.cardBtn{margin-top:16px;padding:12px 20px;border:0;background:var(--gold);font-weight:900;color:#4d3600;box-shadow:0 4px 0 #996800}
+.fact{margin-top:12px;padding:10px;border:1px solid #263c61;background:#0b1323;font-size:.7rem}
+
+/* ---------- PENALTY ---------- */
+#penalty{
+  position:fixed;z-index:60;left:50%;top:18%;transform:translateX(-50%);
+  width:min(88%,420px);padding:12px 14px;background:#210c13;border:2px solid var(--red);
+  color:#fff;text-align:center;font-weight:900;display:none;box-shadow:0 0 22px rgba(255,95,112,.22)
+}
+#penalty.show{display:block;animation:pop .35s ease}
+@keyframes pop{from{transform:translateX(-50%) scale(.9);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+
+/* ---------- END ---------- */
+#endScreen{align-items:center;justify-content:center;padding:20px;background:linear-gradient(180deg,#101932,#080d18)}
+.result{
+  width:min(100%,500px);padding:24px;border:2px solid var(--cyan);background:#091221;text-align:center;
+  box-shadow:0 0 35px rgba(98,240,255,.16)
+}
+.result h1{color:var(--gold);font-size:1.55rem}.bigtime{font-size:clamp(2.1rem,11vw,4.3rem);margin:12px 0;color:#fff;text-shadow:4px 4px 0 #1b5779}
+.rank{display:inline-block;padding:7px 12px;background:#152743;color:var(--green);font-weight:900;margin-bottom:13px}
+.breakdown{width:100%;border-collapse:collapse;margin:12px 0;font-size:.72rem}
+.breakdown td{padding:7px;border-bottom:1px solid #20314e;text-align:left}.breakdown td:last-child{text-align:right;color:var(--gold)}
+.localBoard{margin-top:14px;padding:12px;background:#0d1728;border:1px solid #244264;text-align:left}
+.localBoard h3{font-size:.72rem;color:var(--cyan);margin-bottom:8px}.scoreLine{display:flex;justify-content:space-between;font-size:.68rem;padding:4px 0;border-bottom:1px dashed #20314e}
+.again{margin-top:16px}
+
+@media(max-height:700px){
+  .arcade{padding:16px}.rules{gap:5px}.rule{padding:8px}.swipePad{width:210px;height:105px}
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<section id="startScreen" class="screen active">
+  <div class="arcade">
+    <div class="kicker">FEMANI MEDICAL PRESENTA</div>
+    <div class="logo">OFFICE<span>RUSH</span></div>
+    <div class="subtitle">Juntá todo, esquivá el caos de oficina y completá los 3 stages en el menor tiempo posible.</div>
+
+    <div class="namebox">
+      <label>PLAYER NAME</label>
+      <input id="playerName" maxlength="14" placeholder="ESCRIBÍ TU NOMBRE">
+    </div>
+
+    <div class="rules">
+      <div class="rule"><b>🎯 OBJETIVO</b>Juntá todos los ítems del mapa y llegá a la salida.</div>
+      <div class="rule"><b>🚨 ENEMIGOS</b>Si te tocan sumás +3 segundos.</div>
+      <div class="rule"><b>☕ POWER-UP</b>Café = velocidad extra durante 5 segundos.</div>
+      <div class="rule"><b>🏆 COMPETENCIA</b>Gana quien tenga el menor tiempo total.</div>
+    </div>
+
+    <button id="startBtn" class="startBtn">START GAME</button>
+    <div class="tiny">Ranking general compartido · conectado a Google Sheets.</div>
+  </div>
+</section>
+
+<section id="gameScreen" class="screen">
+  <div class="hud">
+    <div class="hudBox"><div class="hudLabel">PLAYER</div><div id="hudName" class="hudValue">CAMI</div></div>
+    <div class="timer"><small>TIME</small><strong id="timerText">00:00.00</strong></div>
+    <div class="hudBox right"><div class="hudLabel">STAGE</div><div id="stageText" class="hudValue">1/3</div></div>
+  </div>
+  <div id="objectiveText" class="objective">JUNTÁ TODO</div>
+  <div class="controls">
+    <div id="swipePad" class="swipePad">
+      <div class="swipeGrid">
+        <span class="up">▲</span><span class="left">◀</span><span class="mid">MOVE</span><span class="right">▶</span><span class="down">▼</span>
+      </div>
+    </div>
+    <div class="controlHelp">Deslizá el dedo. Un gesto largo hace varios pasos.</div>
+  </div>
+</section>
+
+<div id="stageOverlay" class="overlay"><div class="card">
+  <div id="stageKicker" class="stage">STAGE 1</div><h2 id="stageTitle">OFICINA</h2>
+  <p id="stageDesc"></p><button id="stageBtn" class="cardBtn">READY!</button>
+</div></div>
+
+<div id="clearOverlay" class="overlay"><div class="card">
+  <div class="stage">STAGE CLEAR</div><h2 id="clearTitle">OFICINA COMPLETADA</h2>
+  <div id="clearFact" class="fact"></div><button id="nextBtn" class="cardBtn">NEXT STAGE</button>
+</div></div>
+
+<div id="penalty"></div>
+
+<section id="endScreen" class="screen">
+  <div class="result">
+    <h1>TURNO FINALIZADO</h1>
+    <div id="finalName" style="margin-top:8px;color:#9bc9ea;font-weight:900"></div>
+    <div id="bigTime" class="bigtime">00:00.00</div>
+    <div id="rankText" class="rank">RANK A</div>
+
+    <table class="breakdown">
+      <tr><td>OFICINA</td><td id="t1">00:00.00</td></tr>
+      <tr><td>DEPÓSITO</td><td id="t2">00:00.00</td></tr>
+      <tr><td>SALA DE REUNIONES</td><td id="t3">00:00.00</td></tr>
+      <tr><td>PENALIZACIONES</td><td id="penCount">0</td></tr>
+    </table>
+
+    <div class="localBoard">
+      <h3>🏆 TOP FEMANI MEDICAL</h3>
+      <div id="scoreList"></div>
+    </div>
+
+    <button id="againBtn" class="startBtn again">JUGAR DE NUEVO</button>
+  </div>
+</section>
+
+<script>
+"use strict";
+
+// ============================================================
+// PEGÁ ACÁ LA URL /exec DE TU IMPLEMENTACIÓN DE GOOGLE APPS SCRIPT
+// Ejemplo: https://script.google.com/macros/s/XXXXXXXXXXXX/exec
+// ============================================================
+const SHEETS_API = "https://script.google.com/macros/s/AKfycbySZ0nIiiNvygz3RB9tENxCaNwAsimLFWRkJ9984yJix8qow6-f5kTkKnnONixhyMvfBA/exec";
+
+const $=id=>document.getElementById(id);
+const canvas=$("game"),ctx=canvas.getContext("2d");
+const screens=[$("startScreen"),$("gameScreen"),$("endScreen")];
+const overlays=[$("stageOverlay"),$("clearOverlay")];
+
+let W=0,H=0,DPR=1,raf=null,lastTs=0;
+let playerName="PLAYER",stage=0,playing=false;
+let elapsed=0,penaltySeconds=0,penalties=0,stageStartElapsed=0,stageTimes=[0,0,0];
+let cell=0,offX=0,offY=0;
+let hero={x:1,y:1},items=[],enemies=[],exit={x:0,y:0},power=null,powerTimer=0;
+let swipePointer=null,lastX=0,lastY=0;
+
+const maps=[
+[
+"WWWWWWWWWWWWWWW",
+"WS...W.......E.W",
+"W.W.W.W.WWW.W.W",
+"W.W...W...W.W.W",
+"W.WWW.W.W.W.W.W",
+"W...W.W...W...W",
+"WWW.W.WWWWW.W.W",
+"W...W.....W.W.W",
+"W.WWWWW.W.W.W.W",
+"W.......W...W.W",
+"W.WWWWWWWWW.W.W",
+"W.............W",
+"WWWWWWWWWWWWWWW"
+],
+[
+"WWWWWWWWWWWWWWW",
+"WS....W.......EW",
+"WWWWW.W.WWWWW.W",
+"W.....W.....W..W",
+"W.WWWWWWW.W.W.W",
+"W.W.......W.W.W",
+"W.W.WWWWW.W.W.W",
+"W...W.....W...W",
+"WWW.W.WWWWWWW.W",
+"W...W.......W..W",
+"W.WWWWW.WWWWW.W",
+"W.............W",
+"WWWWWWWWWWWWWWW"
+],
+[
+"WWWWWWWWWWWWWWW",
+"WS....W.......EW",
+"WWW.W.W.WWWWW.W",
+"W...W.W.....W..W",
+"W.WWW.WWW.W.W.W",
+"W.....W...W.W.W",
+"W.WWWWW.W.W.W.W",
+"W.W.....W.W...W",
+"W.W.WWWWWWW.W.W",
+"W...W.......W.W",
+"WWW.W.WWWWW.W.W",
+"W.............W",
+"WWWWWWWWWWWWWWW"
+]
+];
+
+const stages=[
+{
+ name:"OFICINA",desc:"Juntá todos los archivos antes de llegar al ascensor.",collect:"XLS",collectColor:"#4cc26b",
+ wall:"#2e4977",floor:"#d9edf8",exitLabel:"ASC",exitColor:"#2fb2ff",
+ enemyLabels:["CONSULTITA","RESPONDER A TODOS"],fact:"Archivo final_v7_AHORA_SI.xlsx guardado con éxito."
+},
+{
+ name:"DEPÓSITO",desc:"Recorré los racks, juntá todas las cajas y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
+ wall:"#607d54",floor:"#e7f5df",exitLabel:"EXP",exitColor:"#79f2a2",
+ enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"Todo encontrado. Nadie sabe cómo, pero salió."
+},
+{
+ name:"SALA DE REUNIONES",desc:"Juntá todas las diapositivas y escapá por la puerta.",collect:"PPT",collectColor:"#df6b43",
+ wall:"#755c86",floor:"#f2e4fa",exitLabel:"SALIR",exitColor:"#ffd447",
+ enemyLabels:["REUNIÓN QUE PODÍA SER UN MAIL","LA IMPRESORA DECIDIÓ NO COLABORAR"],fact:"Presentación terminada. La reunión sobrevivió menos que vos."
+}
+];
+
+function showScreen(el){screens.forEach(s=>s.classList.remove("active"));el.classList.add("active")}
+function overlay(el){overlays.forEach(o=>o.classList.remove("active"));if(el)el.classList.add("active")}
+
+function resize(){
+ DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+ canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);
+ ctx.setTransform(DPR,0,0,DPR,0,0);layout();draw();
+}
+addEventListener("resize",resize);
+
+function layout(){
+ const m=maps[stage],rows=m.length,cols=m[0].length;
+ const maxW=W*.94,maxH=H*.56;
+ cell=Math.floor(Math.min(maxW/cols,maxH/rows));
+ offX=Math.floor((W-cols*cell)/2);
+ offY=Math.floor(Math.max(94,H*.14));
+}
+
+function fmt(sec){
+ const m=Math.floor(sec/60),s=Math.floor(sec%60),cs=Math.floor((sec-Math.floor(sec))*100);
+ return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(cs).padStart(2,"0")}`;
+}
+
+$("startBtn").onclick=()=>{
+ const n=$("playerName").value.trim();
+ playerName=(n||"PLAYER").toUpperCase().slice(0,14);
+ $("hudName").textContent=playerName;
+ stage=0;elapsed=0;penaltySeconds=0;penalties=0;stageTimes=[0,0,0];
+ showScreen($("gameScreen"));showStage();
+};
+
+function showStage(){
+ playing=false;layout();
+ const s=stages[stage];
+ $("stageKicker").textContent=`STAGE ${stage+1}`;
+ $("stageTitle").textContent=s.name;
+ $("stageDesc").textContent=s.desc;
+ $("stageText").textContent=`${stage+1}/3`;
+ overlay($("stageOverlay"));
+ draw();
+}
+$("stageBtn").onclick=()=>{overlay(null);startStage()};
+
+function startStage(){
+ const m=maps[stage];
+ items=[];enemies=[];power=null;powerTimer=0;
+ for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++){
+  if(m[r][c]==="S"){hero.x=c;hero.y=r}
+  if(m[r][c]==="E"){exit.x=c;exit.y=r}
+ }
+ // fixed collectibles, distributed across the walkable area
+ const candidates=[];
+ for(let r=1;r<m.length-1;r++)for(let c=1;c<m[r].length-1;c++){
+   if(m[r][c]!=="W" && !(c===hero.x&&r===hero.y) && !(c===exit.x&&r===exit.y)) candidates.push({x:c,y:r});
+ }
+ const picks=[.12,.28,.46,.64,.82].map(p=>candidates[Math.floor((candidates.length-1)*p)]);
+ items=picks.map((p,i)=>({x:p.x,y:p.y,got:false,id:i}));
+ const pwr=candidates[Math.floor(candidates.length*.56)];
+ power={x:pwr.x,y:pwr.y,got:false};
+
+ const enemySpots=[candidates[Math.floor(candidates.length*.34)],candidates[Math.floor(candidates.length*.72)]];
+ enemies=enemySpots.map((p,i)=>({x:p.x,y:p.y,dir:i?1:-1,label:stages[stage].enemyLabels[i%stages[stage].enemyLabels.length],cool:0}));
+
+ stageStartElapsed=elapsed+penaltySeconds;
+ updateObjective();
+ playing=true;lastTs=performance.now();
+ if(!raf)raf=requestAnimationFrame(loop);
+}
+
+function wall(x,y){
+ const m=maps[stage];
+ if(y<0||y>=m.length||x<0||x>=m[0].length)return true;
+ return m[y][x]==="W";
+}
+function allCollected(){return items.every(i=>i.got)}
+
+function updateObjective(){
+ const left=items.filter(i=>!i.got).length;
+ $("objectiveText").textContent=left>0?`JUNTÁ TODO · FALTAN ${left}`:"TODO LISTO · ANDÁ A LA SALIDA";
+}
+
+function moveHero(dx,dy){
+ if(!playing)return;
+ const nx=hero.x+dx,ny=hero.y+dy;
+ if(wall(nx,ny))return;
+ hero.x=nx;hero.y=ny;
+
+ items.forEach(i=>{if(!i.got&&i.x===hero.x&&i.y===hero.y)i.got=true});
+ if(power && !power.got && power.x===hero.x&&power.y===hero.y){power.got=true;powerTimer=5}
+ updateObjective();
+
+ if(hero.x===exit.x&&hero.y===exit.y&&allCollected()){clearStage()}
+}
+
+const SW=22;
+$("swipePad").addEventListener("pointerdown",e=>{
+ swipePointer=e.pointerId;lastX=e.clientX;lastY=e.clientY;
+ try{$("swipePad").setPointerCapture(e.pointerId)}catch(_){}
+});
+$("swipePad").addEventListener("pointermove",e=>{
+ if(e.pointerId!==swipePointer)return;
+ let dx=e.clientX-lastX,dy=e.clientY-lastY;
+ while(Math.abs(dx)>=SW||Math.abs(dy)>=SW){
+  const p=$("swipePad");p.className="swipePad";
+  if(Math.abs(dx)>Math.abs(dy)){
+   const d=dx>0?1:-1;p.classList.add(d>0?"mr":"ml");moveHero(d,0);lastX+=d*SW;
+  }else{
+   const d=dy>0?1:-1;p.classList.add(d>0?"md":"mu");moveHero(0,d);lastY+=d*SW;
+  }
+  dx=e.clientX-lastX;dy=e.clientY-lastY;
+ }
+});
+function endSwipe(){swipePointer=null;$("swipePad").className="swipePad"}
+$("swipePad").addEventListener("pointerup",endSwipe);
+$("swipePad").addEventListener("pointercancel",endSwipe);
+$("swipePad").addEventListener("lostpointercapture",endSwipe);
+addEventListener("keydown",e=>{
+ if(e.repeat)return;
+ if(e.key==="ArrowLeft")moveHero(-1,0);
+ if(e.key==="ArrowRight")moveHero(1,0);
+ if(e.key==="ArrowUp")moveHero(0,-1);
+ if(e.key==="ArrowDown")moveHero(0,1);
+});
+
+function loop(ts){
+ const dt=Math.min((ts-lastTs)/1000,.035);lastTs=ts;
+ if(playing)update(dt);draw();raf=requestAnimationFrame(loop);
+}
+function update(dt){
+ elapsed+=dt;
+ if(powerTimer>0)powerTimer=Math.max(0,powerTimer-dt);
+ $("timerText").textContent=fmt(elapsed+penaltySeconds);
+
+ enemies.forEach((e,idx)=>{
+   e.cool-=dt;
+   if(e.cool<=0){
+     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+     // lightweight chasing: prefer axis with greatest distance
+     dirs.sort((a,b)=>{
+       const da=Math.abs((e.x+a[0])-hero.x)+Math.abs((e.y+a[1])-hero.y);
+       const db=Math.abs((e.x+b[0])-hero.x)+Math.abs((e.y+b[1])-hero.y);
+       return da-db;
+     });
+     const options=dirs.filter(d=>!wall(e.x+d[0],e.y+d[1]));
+     const choice=options[Math.random()<.72?0:Math.floor(Math.random()*options.length)];
+     if(choice){e.x+=choice[0];e.y+=choice[1]}
+     e.cool=powerTimer>0?.42:.28;
+   }
+   if(e.x===hero.x&&e.y===hero.y){applyPenalty(e)}
+ });
+}
+
+let penaltyLock=false;
+function applyPenalty(enemy){
+ if(penaltyLock)return;
+ penaltyLock=true;penaltySeconds+=3;penalties++;
+ const box=$("penalty");
+ box.textContent=`⚠ ${enemy.label} · +3 SEG`;
+ box.classList.add("show");
+ setTimeout(()=>box.classList.remove("show"),900);
+ // send enemy away a little
+ enemy.cool=.7;
+ setTimeout(()=>penaltyLock=false,700);
+}
+
+function clearStage(){
+ playing=false;
+ stageTimes[stage]=(elapsed+penaltySeconds)-stageStartElapsed;
+ $("clearTitle").textContent=`${stages[stage].name} COMPLETADA`;
+ $("clearFact").textContent=stages[stage].fact;
+ $("nextBtn").textContent=stage<2?"NEXT STAGE":"VER RESULTADO";
+ overlay($("clearOverlay"));
+}
+$("nextBtn").onclick=()=>{
+ overlay(null);
+ if(stage<2){stage++;showStage()}else finishGame();
+};
+
+async function finishGame(){
+ playing=false;
+ const total=elapsed+penaltySeconds;
+ $("finalName").textContent=playerName;
+ $("bigTime").textContent=fmt(total);
+ $("t1").textContent=fmt(stageTimes[0]);
+ $("t2").textContent=fmt(stageTimes[1]);
+ $("t3").textContent=fmt(stageTimes[2]);
+ $("penCount").textContent=`${penalties} (+${penaltySeconds}s)`;
+ $("rankText").textContent=rank(total);
+
+ showScreen($("endScreen"));
+ $("scoreList").innerHTML="<div class='scoreLine'><span>GUARDANDO RESULTADO...</span><span>⌛</span></div>";
+
+ await saveScore({name:playerName,time:total,date:Date.now()});
+
+ // Apps Script/Sheets puede tardar unas décimas en reflejar appendRow.
+ await new Promise(resolve=>setTimeout(resolve,700));
+ await renderScores();
+}
+
+function rank(t){
+ if(t<90)return "RANK S · INEXPLICABLEMENTE EFICIENTE";
+ if(t<120)return "RANK A · APROBADO POR LOGÍSTICA";
+ if(t<150)return "RANK B · DENTRO DE PARÁMETROS";
+ if(t<180)return "RANK C · NECESITA SEGUIMIENTO";
+ return "RANK D · SIGUE EN LA REUNIÓN";
+}
+
+async function saveScore(s){
+ if(!SHEETS_API || SHEETS_API.includes("PEGA_ACA")){
+   console.warn("Falta configurar SHEETS_API.");
+   return false;
+ }
+
+ const payload={
+   nombre:s.name,
+   total:s.time,
+   oficina:stageTimes[0],
+   deposito:stageTimes[1],
+   reunion:stageTimes[2],
+   penalizaciones:penalties
+ };
+
+ try{
+   // text/plain evita el preflight CORS que suele dar problemas entre
+   // GitHub Pages y Apps Script. Apps Script igualmente recibe el JSON
+   // dentro de e.postData.contents.
+   await fetch(SHEETS_API,{
+     method:"POST",
+     mode:"no-cors",
+     headers:{"Content-Type":"text/plain;charset=utf-8"},
+     body:JSON.stringify(payload)
+   });
+   return true;
+ }catch(err){
+   console.error("No se pudo guardar el resultado:",err);
+   return false;
+ }
+}
+
+async function renderScores(){
+ const list=$("scoreList");
+
+ if(!SHEETS_API || SHEETS_API.includes("PEGA_ACA")){
+   list.innerHTML="<div class='scoreLine'><span>FALTA CONECTAR GOOGLE SHEETS</span><span>--</span></div>";
+   return;
+ }
+
+ list.innerHTML="<div class='scoreLine'><span>CARGANDO RANKING...</span><span>⌛</span></div>";
+
+ try{
+   // Cache-buster para que siempre lea el ranking actualizado.
+   const joiner=SHEETS_API.includes("?")?"&":"?";
+   const res=await fetch(SHEETS_API+joiner+"_="+Date.now(),{cache:"no-store"});
+   if(!res.ok)throw new Error("HTTP "+res.status);
+
+   const arr=await res.json();
+
+   list.innerHTML=arr.length
+     ?arr.slice(0,10).map((s,i)=>`
+       <div class="scoreLine">
+         <span>${i+1}. ${escapeHtml(String(s.nombre||"PLAYER"))}</span>
+         <span>${fmt(Number(s.total)||0)}</span>
+       </div>`).join("")
+     :"<div class='scoreLine'><span>SIN RÉCORDS TODAVÍA</span><span>--</span></div>";
+ }catch(err){
+   console.error("No se pudo cargar el ranking:",err);
+   list.innerHTML="<div class='scoreLine'><span>NO SE PUDO CARGAR EL RANKING</span><span>⚠</span></div>";
+ }
+}
+
+function escapeHtml(text){
+ return text.replace(/[&<>"']/g,ch=>({
+   "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+ })[ch]);
+}
+$("againBtn").onclick=()=>showScreen($("startScreen"));
+
+/* ---------- DRAW ---------- */
+function draw(){
+ if(!W||!H)return;
+ ctx.fillStyle="#08101e";ctx.fillRect(0,0,W,H);
+ drawMap();drawItems();drawExit();drawPower();drawEnemies();drawHero();
+}
+function drawMap(){
+ const m=maps[stage],s=stages[stage];
+ for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++){
+   const x=offX+c*cell,y=offY+r*cell;
+   if(m[r][c]==="W"){
+     ctx.fillStyle=s.wall;ctx.fillRect(x,y,cell,cell);
+     ctx.fillStyle="rgba(255,255,255,.08)";ctx.fillRect(x+2,y+2,cell-4,2);
+   }else{
+     ctx.fillStyle=s.floor;ctx.fillRect(x,y,cell,cell);
+     ctx.strokeStyle="rgba(20,30,45,.07)";ctx.strokeRect(x,y,cell,cell);
+   }
+ }
+}
+function drawItems(){
+ const s=stages[stage];
+ items.forEach(i=>{
+   if(i.got)return;
+   const x=offX+(i.x+.5)*cell,y=offY+(i.y+.5)*cell;
+   ctx.fillStyle=s.collectColor;ctx.fillRect(x-cell*.18,y-cell*.15,cell*.36,cell*.3);
+   ctx.fillStyle="#fff";ctx.font=`900 ${Math.max(7,cell*.14)}px Courier New`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(s.collect,x,y);
+ });
+}
+function drawExit(){
+ const s=stages[stage],x=offX+(exit.x+.5)*cell,y=offY+(exit.y+.5)*cell;
+ ctx.fillStyle=allCollected()?s.exitColor:"#7c8794";ctx.fillRect(x-cell*.3,y-cell*.32,cell*.6,cell*.64);
+ ctx.fillStyle="#08101e";ctx.font=`900 ${Math.max(7,cell*.12)}px Courier New`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(s.exitLabel,x,y);
+}
+function drawPower(){
+ if(!power||power.got)return;
+ const x=offX+(power.x+.5)*cell,y=offY+(power.y+.5)*cell;
+ ctx.fillStyle="#6b4025";ctx.fillRect(x-cell*.15,y-cell*.08,cell*.24,cell*.18);
+ ctx.fillStyle="#fff2d1";ctx.fillRect(x-cell*.13,y-cell*.14,cell*.2,cell*.12);
+ ctx.strokeStyle="#6b4025";ctx.lineWidth=2;ctx.strokeRect(x+cell*.08,y-cell*.05,cell*.09,cell*.12);
+}
+function drawEnemies(){
+ enemies.forEach((e,i)=>{
+   const x=offX+(e.x+.5)*cell,y=offY+(e.y+.5)*cell;
+   ctx.fillStyle=i?"#ff6f91":"#ef5350";
+   ctx.beginPath();ctx.arc(x,y,cell*.22,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle="#fff";ctx.fillRect(x-cell*.10,y-cell*.06,cell*.05,cell*.05);ctx.fillRect(x+cell*.05,y-cell*.06,cell*.05,cell*.05);
+ });
+}
+function drawHero(){
+ const x=offX+(hero.x+.5)*cell,y=offY+(hero.y+.5)*cell;
+ const blink=powerTimer>0&&Math.floor(powerTimer*8)%2===0;
+ ctx.fillStyle=blink?varColor("--gold"):"#1c7ed6";
+ ctx.fillRect(x-cell*.18,y-cell*.22,cell*.36,cell*.44);
+ ctx.fillStyle="#ffd7b5";ctx.fillRect(x-cell*.12,y-cell*.32,cell*.24,cell*.16);
+ ctx.fillStyle="#0b0f1f";ctx.fillRect(x-cell*.10,y-cell*.08,cell*.20,cell*.06);
+}
+function varColor(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||"#ffd447"}
+
+resize();showScreen($("startScreen"));draw();
+</script>
+</body>
+</html>
