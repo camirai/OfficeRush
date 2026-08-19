@@ -222,7 +222,7 @@ canvas{touch-action:none}
 
 <section id="startScreen" class="screen active">
   <div class="arcade">
-    <div class="kicker">FEMANI MEDICAL PRESENTA · V4</div>
+    <div class="kicker">FEMANI MEDICAL PRESENTA · V4.1</div>
     <div class="logo">FEMANI<span>RUSH</span></div>
     <div class="subtitle">Deslizá directamente sobre el mapa para moverte. Juntá todos los ítems y llegá a la salida lo más rápido posible.</div>
 
@@ -238,7 +238,7 @@ canvas{touch-action:none}
     </div>
 
     <button id="startBtn" class="startBtn">START GAME</button>
-    <div class="tiny">Versión V4 · 4 niveles · power-ups · ranking compartido por Google Sheets.</div>
+    <div class="tiny">Versión V4.1 · niveles 2/3 más dispersos · nivel épico reequilibrado.</div>
   </div>
 </section>
 
@@ -377,25 +377,25 @@ const stages=[
  name:"OFICINA",desc:"Juntá todo lo necesario y llegá al ascensor.",collect:"XLS",collectColor:"#4cc26b",
  itemLabels:["XLS","MAIL","TEL","DOC","CAFÉ"],
  wall:"#2e4977",floor:"#d9edf8",exitLabel:"ASC",exitColor:"#2fb2ff",
- enemyLabels:["CONSULTITA","RESPONDER A TODOS"],fact:"Archivo final_v7_AHORA_SI.xlsx guardado con éxito."
+ enemyLabels:["CONSULTITA","RESPONDER A TODOS"],fact:"OFICINA SUPERADA · Sobreviviste a mails, consultitas y archivos. Inexplicablemente, todo sigue funcionando."
 },
 {
- name:"DEPÓSITO",desc:"Recorré los racks, recuperá el material y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
+ name:"DEPÓSITO",desc:"Los materiales quedaron repartidos por todo el depósito. Recuperalos y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
  itemLabels:["23","26","29","34","REM"],
  wall:"#607d54",floor:"#e7f5df",exitLabel:"EXP",exitColor:"#79f2a2",
- enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"Todo encontrado. Nadie sabe cómo, pero salió."
+ enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"DEPÓSITO SUPERADO · Encontraste todo sin preguntar tres veces dónde estaba. Récord institucional."
 },
 {
- name:"SALA DE REUNIONES",desc:"Juntá todo y escapá antes de que aparezca otra reunión.",collect:"PPT",collectColor:"#df6b43",
+ name:"SALA DE REUNIONES",desc:"Tus cosas quedaron desparramadas por toda la sala. Juntalas y escapá antes de que aparezca otra reunión.",collect:"PPT",collectColor:"#df6b43",
  itemLabels:["PPT","CAFÉ","CEL","MAIL","XLS"],
  wall:"#755c86",floor:"#f2e4fa",exitLabel:"SALIR",exitColor:"#ffd447",
- enemyLabels:["REUNIÓN","IMPRESORA"],fact:"Presentación terminada. Lograste escapar."
+ enemyLabels:["REUNIÓN","IMPRESORA"],fact:"REUNIÓN SUPERADA · Lograste salir antes de escuchar «una última cosa». Eso cuenta como victoria."
 },
 {
  name:"🔥 NIVEL ÉPICO",desc:"Última corrida: recuperá todo el material y llegá a CIRUGÍA.",collect:"KIT",collectColor:"#ff4f70",
  itemLabels:["23","26","29","34","REM","KIT","DOC"],
  wall:"#7d2948",floor:"#ffe6ee",exitLabel:"CX",exitColor:"#ffe66d",
- enemyLabels:["URGENTE","SISTEMA","CONSULTITA"],fact:"Misión épica completada. El material llegó y sobreviviste al caos."
+ enemyLabels:["URGENTE","SISTEMA","CONSULTITA"],fact:"NIVEL ÉPICO SUPERADO · El material llegó a CX. Nadie sabe cómo lo hiciste, pero tampoco vamos a hacer preguntas."
 }
 ];
 
@@ -442,6 +442,43 @@ function showStage(){
 }
 $("stageBtn").onclick=()=>{overlay(null);startStage()};
 
+function pickSpreadPositions(candidates,count,minHero=0,minExit=0){
+ const pool=candidates.filter(p=>{
+   const dh=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
+   const de=Math.abs(p.x-exit.x)+Math.abs(p.y-exit.y);
+   return dh>=minHero && de>=minExit;
+ });
+
+ const usable=pool.length>=count ? [...pool] : [...candidates];
+ const chosen=[];
+
+ while(chosen.length<count && usable.length){
+   let bestIndex=0,bestScore=-Infinity;
+
+   for(let i=0;i<usable.length;i++){
+     const p=usable[i];
+     const heroDist=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
+     const exitDist=Math.abs(p.x-exit.x)+Math.abs(p.y-exit.y);
+
+     const spread=chosen.length
+       ? Math.min(...chosen.map(q=>Math.abs(p.x-q.x)+Math.abs(p.y-q.y)))
+       : heroDist;
+
+     // Spread dominates; hero/exit distance only breaks ties.
+     const score=spread*10 + heroDist*.8 + exitDist*.25;
+
+     if(score>bestScore){
+       bestScore=score;
+       bestIndex=i;
+     }
+   }
+
+   chosen.push(usable.splice(bestIndex,1)[0]);
+ }
+
+ return chosen;
+}
+
 function startStage(){
  const m=maps[stage];
  items=[];enemies=[];
@@ -454,14 +491,30 @@ function startStage(){
  for(let r=1;r<m.length-1;r++)for(let c=1;c<m[r].length-1;c++){
    if(m[r][c]!=="W" && !(c===hero.x&&r===hero.y) && !(c===exit.x&&r===exit.y)) candidates.push({x:c,y:r});
  }
- const fractions=stage===3?[.08,.20,.33,.46,.59,.72,.86]:[.12,.28,.46,.64,.82];
- const picks=fractions.map(p=>candidates[Math.floor((candidates.length-1)*p)]);
+ // Spread items across the map so the player has to explore instead of
+ // following one obvious corridor. Levels 2 and 3 use stronger dispersion.
+ const itemCount=stage===3?7:5;
+ const itemMinHero=stage===1?4:stage===2?5:stage===3?4:2;
+ const picks=pickSpreadPositions(candidates,itemCount,itemMinHero,2);
  const labels=stages[stage].itemLabels||[];
  items=picks.map((p,i)=>({x:p.x,y:p.y,got:false,id:i,label:labels[i%labels.length]||stages[stage].collect}));
 
- const enemyFractions=stage===3?[.24,.51,.78]:[.34,.72];
- const enemySpots=enemyFractions.map(f=>candidates[Math.floor(candidates.length*f)]);
- enemies=enemySpots.map((p,i)=>({x:p.x,y:p.y,dir:i?1:-1,label:stages[stage].enemyLabels[i%stages[stage].enemyLabels.length],cool:0}));
+ // In the epic level enemies must start well away from the player.
+ // This gives a few seconds to read the map before the chase begins.
+ let enemyPool=candidates.filter(p=>{
+   const dHero=Math.abs(p.x-hero.x)+Math.abs(p.y-hero.y);
+   const onItem=picks.some(q=>q.x===p.x&&q.y===p.y);
+   return !onItem && (stage===3 ? dHero>=9 : dHero>=5);
+ });
+ if(enemyPool.length<(stage===3?3:2)) enemyPool=candidates.filter(p=>!picks.some(q=>q.x===p.x&&q.y===p.y));
+
+ const enemyCount=stage===3?3:2;
+ const enemySpots=pickSpreadPositions(enemyPool,enemyCount,stage===3?9:5,3);
+ enemies=enemySpots.map((p,i)=>({
+   x:p.x,y:p.y,dir:i?1:-1,
+   label:stages[stage].enemyLabels[i%stages[stage].enemyLabels.length],
+   cool:stage===3 ? .85+i*.12 : .25+i*.08
+ }));
 
  stageStartElapsed=elapsed+penaltySeconds;
  updateObjective();
@@ -805,7 +858,7 @@ function drawStageDetails(){
  ctx.font=`900 ${Math.max(7,cell*.11)}px Arial`;
  ctx.fillStyle="rgba(8,16,30,.38)";
  const labels=stage===0?["EXCEL","MAIL","PEDIDOS"]:
-              stage===1?["RACK 23","RACK 26","RACK 29","RACK 34"]:
+              stage===1?["ESTANTE 23","ESTANTE 26","ESTANTE 29","ESTANTE 34"]:
               stage===2?["PPT","CAFÉ","SALIDA"]:
               ["TAVI","AORTA","URGENTE","CX"];
  const spots=[[2,11],[6,1],[11,11],[9,5]];
