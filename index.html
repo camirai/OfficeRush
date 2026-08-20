@@ -215,6 +215,45 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 canvas{touch-action:none}
 .toast{bottom:max(56px,calc(env(safe-area-inset-bottom) + 48px))!important}
 
+
+/* ===== V4.5 MOBILE-FIRST ===== */
+.hud{
+  top:0!important;
+  padding:max(7px,env(safe-area-inset-top)) 8px 0!important;
+  gap:5px!important;
+}
+.hudBox{
+  padding:6px 8px!important;
+  min-width:68px!important;
+  border-radius:10px!important;
+}
+.hudLabel{font-size:.52rem!important}
+.hudValue{font-size:.83rem!important}
+.timer strong{font-size:1.48rem!important}
+.timer small{font-size:.5rem!important}
+.objective{
+  top:max(61px,calc(env(safe-area-inset-top) + 54px))!important;
+  font-size:.68rem!important;
+  padding:6px 11px!important;
+  max-width:94%!important;
+}
+.youLegend{
+  top:max(94px,calc(env(safe-area-inset-top) + 87px))!important;
+  padding:4px 8px!important;
+  font-size:.62rem!important;
+}
+.swipeHint{
+  bottom:max(8px,env(safe-area-inset-bottom))!important;
+  padding:6px 10px!important;
+  font-size:.61rem!important;
+  opacity:.82;
+  transition:opacity .3s ease;
+}
+.swipeHint.fade{opacity:.22}
+.toast{
+  bottom:max(42px,calc(env(safe-area-inset-bottom) + 34px))!important;
+}
+
 </style>
 </head>
 <body>
@@ -222,7 +261,7 @@ canvas{touch-action:none}
 
 <section id="startScreen" class="screen active">
   <div class="arcade">
-    <div class="kicker">FEMANI MEDICAL PRESENTA</div>
+    <div class="kicker">FEMANI MEDICAL PRESENTA · V4.5</div>
     <div class="logo">FEMANI<span>RUSH</span></div>
     <div class="subtitle">Deslizá directamente sobre el mapa para moverte. Juntá todos los ítems y llegá a la salida lo más rápido posible.</div>
 
@@ -238,7 +277,7 @@ canvas{touch-action:none}
     </div>
 
     <button id="startBtn" class="startBtn">START GAME</button>
-    <div class="tiny">Versión V4.4 · persecución activada por posición, no por tiempo.</div>
+    <div class="tiny">Versión V4.5 · interfaz mobile-first · objetos grandes y claros.</div>
   </div>
 </section>
 
@@ -385,7 +424,7 @@ const stages=[
  name:"DEPÓSITO",desc:"Los materiales quedaron repartidos por todo el depósito. Recuperalos y salí por Expedición.",collect:"BOX",collectColor:"#c9873b",
  itemLabels:["23","26","29","34","REM"],
  wall:"#607d54",floor:"#e7f5df",exitLabel:"EXP",exitColor:"#79f2a2",
- enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"DEPÓSITO SUPERADO · Encontraste todo sin preguntar tres veces dónde estaba."
+ enemyLabels:["SE VOLVIÓ A CAER EL SISTEMA","CONSULTITA"],fact:"DEPÓSITO SUPERADO · Encontraste todo sin preguntar tres veces dónde estaba. Récord institucional."
 },
 {
  name:"SALA DE REUNIONES",desc:"Tus cosas quedaron desparramadas por toda la sala. Juntalas y escapá antes de que aparezca otra reunión.",collect:"PPT",collectColor:"#df6b43",
@@ -413,10 +452,10 @@ addEventListener("resize",resize);
 
 function layout(){
  const m=maps[stage],rows=m.length,cols=m[0].length;
- const maxW=W*.97,maxH=H*.70;
+ const maxW=W*.98,maxH=H*.79;
  cell=Math.floor(Math.min(maxW/cols,maxH/rows));
  offX=Math.floor((W-cols*cell)/2);
- offY=Math.floor(Math.max(120,H*.17));
+ offY=Math.floor(Math.max(102,H*.135));
 }
 
 function fmt(sec){
@@ -578,6 +617,14 @@ function startStage(){
 
  stageStartElapsed=elapsed+penaltySeconds;
  updateObjective();
+
+ const hint=document.querySelector(".swipeHint");
+ if(hint){
+   hint.classList.remove("fade");
+   clearTimeout(startStage.hintTimer);
+   startStage.hintTimer=setTimeout(()=>hint.classList.add("fade"),2600);
+ }
+
  playing=true;lastTs=performance.now();
  if(!raf)raf=requestAnimationFrame(loop);
 }
@@ -936,33 +983,109 @@ function drawMap(){
  }
 }
 function drawStageDetails(){
- ctx.save();
- ctx.textAlign="center";ctx.textBaseline="middle";
- ctx.font=`900 ${Math.max(7,cell*.11)}px Arial`;
- ctx.fillStyle="rgba(8,16,30,.38)";
- const labels=stage===0?["EXCEL","MAIL","PEDIDOS"]:
-              stage===1?["ESTANTE 23","ESTANTE 26","ESTANTE 29","ESTANTE 34"]:
-              stage===2?["PPT","CAFÉ","SALIDA"]:
-              ["TAVI","AORTA","URGENTE","CX"];
- const spots=[[2,11],[6,1],[11,11],[9,5]];
- labels.forEach((t,i)=>{const p=spots[i%spots.length];ctx.fillText(t,offX+(p[0]+.5)*cell,offY+(p[1]+.5)*cell)});
- ctx.restore();
+ // Minimal mobile layout: no extra labels inside the map.
 }
 
 function drawItems(){
  const s=stages[stage];
+
  items.forEach(i=>{
    if(i.got)return;
-   const x=offX+(i.x+.5)*cell,y=offY+(i.y+.5)*cell;
-   ctx.fillStyle=s.collectColor;
-   if(stage===1||stage===3){
-     ctx.fillRect(x-cell*.21,y-cell*.17,cell*.42,cell*.34);
-     ctx.strokeStyle="rgba(0,0,0,.28)";ctx.strokeRect(x-cell*.21,y-cell*.17,cell*.42,cell*.34);
-   }else{
-     ctx.fillRect(x-cell*.18,y-cell*.15,cell*.36,cell*.3);
-   }
-   ctx.fillStyle="#fff";ctx.font=`900 ${Math.max(7,cell*.14)}px Courier New`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(i.label||s.collect,x,y);
+   const px=offX+(i.x+.5)*cell;
+   const py=offY+(i.y+.5)*cell;
+   const label=String(i.label||s.collect).toUpperCase();
+   drawCollectible(px,py,label,s.collectColor);
  });
+}
+
+function drawCollectible(px,py,label,fallbackColor){
+ ctx.save();
+ ctx.translate(px,py);
+
+ const w=cell*.72;
+ const h=cell*.62;
+
+ ctx.fillStyle="rgba(255,255,255,.80)";
+ ctx.beginPath();
+ ctx.arc(0,0,cell*.40,0,Math.PI*2);
+ ctx.fill();
+
+ if(label==="XLS" || label==="EXCEL"){
+   ctx.fillStyle="#2ca45c";
+   roundItem(-w/2,-h/2,w,h,cell*.10);
+   ctx.fillStyle="#fff";
+   ctx.fillRect(-w*.27,-h*.23,w*.13,h*.46);
+   ctx.font=`900 ${Math.max(8,cell*.18)}px Arial`;
+   ctx.textAlign="center";ctx.textBaseline="middle";
+   ctx.fillText("XLS",w*.08,0);
+ }
+ else if(label==="MAIL"){
+   ctx.fillStyle="#5b9bd5";
+   roundItem(-w/2,-h/2,w,h,cell*.10);
+   ctx.strokeStyle="#fff";ctx.lineWidth=Math.max(1.5,cell*.045);
+   ctx.beginPath();
+   ctx.moveTo(-w*.34,-h*.18);ctx.lineTo(0,h*.08);ctx.lineTo(w*.34,-h*.18);
+   ctx.stroke();
+ }
+ else if(label==="TEL" || label==="CEL"){
+   ctx.fillStyle="#394b5d";
+   roundItem(-w*.28,-h*.45,w*.56,h*.9,cell*.12);
+   ctx.fillStyle="#8fd5ff";
+   ctx.fillRect(-w*.18,-h*.28,w*.36,h*.45);
+   ctx.fillStyle="#fff";
+   ctx.beginPath();ctx.arc(0,h*.28,cell*.035,0,Math.PI*2);ctx.fill();
+ }
+ else if(["DOC","REM","INFO","PPT"].includes(label)){
+   ctx.fillStyle=label==="PPT"?"#db6b43":"#f5f7fb";
+   ctx.strokeStyle=label==="PPT"?"#a7472d":"#7b8b98";
+   ctx.lineWidth=Math.max(1,cell*.03);
+   roundItem(-w*.38,-h*.47,w*.76,h*.94,cell*.07,true);
+   ctx.fillStyle=label==="PPT"?"#fff":"#587083";
+   ctx.fillRect(-w*.22,-h*.20,w*.44,cell*.055);
+   ctx.fillRect(-w*.22,-h*.04,w*.35,cell*.055);
+   ctx.fillRect(-w*.22,h*.12,w*.40,cell*.055);
+   ctx.font=`900 ${Math.max(7,cell*.13)}px Arial`;
+   ctx.textAlign="center";ctx.textBaseline="middle";
+   ctx.fillText(label,0,h*.31);
+ }
+ else if(label==="CAFÉ" || label==="CAFE"){
+   ctx.fillStyle="#b7774e";
+   roundItem(-w*.32,-h*.20,w*.52,h*.48,cell*.10);
+   ctx.strokeStyle="#b7774e";ctx.lineWidth=Math.max(2,cell*.05);
+   ctx.beginPath();ctx.arc(w*.23,0,w*.16,-Math.PI/2,Math.PI/2);ctx.stroke();
+   ctx.strokeStyle="rgba(255,255,255,.75)";ctx.lineWidth=Math.max(1,cell*.025);
+   ctx.beginPath();ctx.moveTo(-w*.18,-h*.28);ctx.quadraticCurveTo(-w*.08,-h*.42,0,-h*.30);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(0,-h*.28);ctx.quadraticCurveTo(w*.08,-h*.42,w*.14,-h*.30);ctx.stroke();
+ }
+ else if(["23","26","29","34"].includes(label)){
+   ctx.fillStyle="#d69a4c";
+   roundItem(-w*.42,-h*.34,w*.84,h*.68,cell*.08);
+   ctx.strokeStyle="#8b5e2c";ctx.lineWidth=Math.max(1,cell*.03);ctx.stroke();
+   ctx.fillStyle="#fff";
+   ctx.font=`900 ${Math.max(10,cell*.24)}px Arial`;
+   ctx.textAlign="center";ctx.textBaseline="middle";
+   ctx.fillText(label,0,-cell*.02);
+   ctx.font=`700 ${Math.max(6,cell*.10)}px Arial`;
+   ctx.fillText("MM",0,cell*.18);
+ }
+ else{
+   ctx.fillStyle=fallbackColor||"#c9873b";
+   roundItem(-w*.42,-h*.34,w*.84,h*.68,cell*.08);
+   ctx.fillStyle="#fff";
+   ctx.font=`900 ${Math.max(7,cell*.13)}px Arial`;
+   ctx.textAlign="center";ctx.textBaseline="middle";
+   ctx.fillText(label,0,0);
+ }
+
+ ctx.restore();
+}
+
+function roundItem(x,y,w,h,r,doStroke=false){
+ ctx.beginPath();
+ if(ctx.roundRect)ctx.roundRect(x,y,w,h,r);
+ else ctx.rect(x,y,w,h);
+ ctx.fill();
+ if(doStroke)ctx.stroke();
 }
 function drawExit(){
  const s=stages[stage],x=offX+(exit.x+.5)*cell,y=offY+(exit.y+.5)*cell;
@@ -978,7 +1101,7 @@ function drawEnemies(){
    const x=offX+(e.x+.5)*cell,y=offY+(e.y+.5)*cell;
    ctx.save();
    ctx.fillStyle=!enemiesActive?"#7d8a96":(i?"#ff9bb9":"#ff8b8b");
-   ctx.beginPath();ctx.arc(x,y,cell*.19,0,Math.PI*2);ctx.fill();
+   ctx.beginPath();ctx.arc(x,y,cell*.22,0,Math.PI*2);ctx.fill();
    ctx.fillStyle=!enemiesActive?"#dce4ea":"#7c2335";
    ctx.font=`900 ${Math.max(9,cell*.17)}px Arial`;
    ctx.textAlign="center";ctx.textBaseline="middle";
